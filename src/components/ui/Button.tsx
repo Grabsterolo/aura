@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { cn } from './cn';
 
-type ButtonVariant = 'primary' | 'secondary';
+type ButtonVariant = 'primary' | 'secondary' | 'danger';
 type ButtonSize = 'sm' | 'md';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -15,6 +15,7 @@ const baseClasses =
 const variantClasses: Record<ButtonVariant, string> = {
   primary: 'bg-accent text-white hover:-translate-y-px hover:bg-accent-hover',
   secondary: 'border border-border text-secondary hover:border-accent hover:text-primary',
+  danger: 'bg-error text-white hover:-translate-y-px hover:opacity-90',
 };
 
 const sizeClasses: Record<ButtonSize, string> = {

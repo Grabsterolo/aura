@@ -298,7 +298,7 @@ export type Database = {
       }
       prospects: {
         Row: {
-          campaign_id: string
+          campaign_id: string | null
           categoria: string | null
           contacto: Json
           creado_en: string
@@ -310,7 +310,7 @@ export type Database = {
           owner_id: string
         }
         Insert: {
-          campaign_id: string
+          campaign_id?: string | null
           categoria?: string | null
           contacto?: Json
           creado_en?: string
@@ -322,7 +322,7 @@ export type Database = {
           owner_id?: string
         }
         Update: {
-          campaign_id?: string
+          campaign_id?: string | null
           categoria?: string | null
           contacto?: Json
           creado_en?: string
