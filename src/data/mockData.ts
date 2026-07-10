@@ -1,7 +1,5 @@
 import type { ActivityItem, ApprovalDraft, Campaign, MetricCardData } from './types';
 
-export const activeCampaignName = 'Clínicas dentales — GAM Q3';
-
 export const metricCards: MetricCardData[] = [
   {
     id: 'prospectos-activos',

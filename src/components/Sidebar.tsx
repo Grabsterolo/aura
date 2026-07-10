@@ -30,7 +30,7 @@ export function Sidebar() {
     <aside className="flex h-full w-[180px] shrink-0 flex-col border-r border-border bg-panel">
       <div className="flex h-16 items-center px-5">
         <span className="text-[15px] font-semibold tracking-tight text-primary">
-          Prospecta<span className="text-accent">+</span>
+          Prospecta + Aura
         </span>
       </div>
       <nav className="flex-1 px-2 py-2">
