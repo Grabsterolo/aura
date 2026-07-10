@@ -1,8 +1,14 @@
 import { useCountUp } from '@/hooks/useCountUp';
-import type { MetricCardData } from '@/data/types';
 import { Card } from '@/components/ui/Card';
 
-export function MetricCard({ label, value, suffix, helper }: MetricCardData) {
+export interface MetricCardProps {
+  label: string;
+  value: number;
+  suffix?: string;
+  helper: string;
+}
+
+export function MetricCard({ label, value, suffix, helper }: MetricCardProps) {
   const animatedValue = useCountUp(value);
 
   return (

@@ -20,10 +20,15 @@ gestiona el contacto con aprobación humana obligatoria en esta fase.
   Cliente tipado con el esquema real en `src/lib/supabaseClient.ts`
   (`createClient<Database>`, ver `src/types/database.ts`), auth en
   `src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts`.
-- @tanstack/react-query — infraestructura lista (`QueryClientProvider` en
-  `App.tsx`, cliente en `src/lib/queryClient.ts`) pero sin queries reales
-  todavía. Cuando se conecten campañas/prospectos reales de Supabase, usar
-  este patrón de fetching en vez de inventar uno nuevo por página.
+- @tanstack/react-query — capa de datos de servidor. Un hook por entidad en
+  `src/hooks/queries/` (`useCampaigns`, `useProspects`, `useApprovalQueue`,
+  `useConversations`, ...) envolviendo `supabase.from(...).select()` en
+  `useQuery`, tipado con los alias de `src/types/index.ts`. Las mutaciones
+  (`useCreateCampaign`, `useUpdateCampaign`) usan `useMutation` +
+  `invalidateQueries` sobre la query key correspondiente (exportada desde el
+  archivo de la query, ej. `campaignsKey`). Seguir este mismo patrón para
+  cualquier entidad nueva — no inventar un patrón de fetching distinto por
+  página.
 - Cloudflare Pages (frontend) + Cloudflare Pages Functions (backend, carpeta
   `functions/` en la raíz — todavía no creada)
 - Vitest + Testing Library para tests (`npm run test`)
@@ -46,16 +51,14 @@ de `components/ui/`) pueden seguir usando `./`.
   `components/ui/`.
 - `src/hooks/` — un hook por archivo; si el hook expone un contexto, el
   `Context` y el hook van juntos en el mismo archivo (patrón usado en
-  `useTheme.ts` y `useAuth.ts`)
-- `src/lib/` — clientes e integraciones externas (Supabase, React Query)
+  `useTheme.ts` y `useAuth.ts`). `src/hooks/queries/` es solo para hooks de
+  React Query (ver arriba).
+- `src/lib/` — clientes e integraciones externas (Supabase, React Query) y
+  utilidades chicas compartidas (ej. `formatDate.ts`)
 - `src/types/` — tipos generados del esquema real de Supabase
   (`database.ts`, regenerado desde el proyecto — no editar a mano) y
   `index.ts`, que re-exporta los tipos de tabla (`Tables<'campaigns'>`, etc.)
   con nombres cómodos (`Campaign`, `Prospect`, ...) para el resto de la app
-- `src/data/` — tipos y datos mock (`types.ts`, `mockData.ts`) hasta que se
-  conecten datos reales de Supabase vía React Query. No confundir con
-  `src/types/`: `data/types.ts` es para la UI mock actual, `types/` es el
-  esquema real de la base de datos.
 
 ## Auth
 
@@ -63,6 +66,16 @@ No hay registro público. Los usuarios se crean manualmente en el dashboard
 de Supabase. `ProtectedRoute` (`src/components/ProtectedRoute.tsx`) redirige
 a `/login` si no hay sesión y muestra un estado de carga mientras se
 resuelve — nunca debe haber un flash de contenido protegido sin sesión.
+
+## Reglas de negocio conocidas
+
+- `campaigns.canal` siempre es `'email'` — hay un check constraint en la
+  base que lo fuerza (primer contacto siempre por correo). En formularios,
+  mostrarlo fijo/no editable, nunca como select.
+- Estados vacíos: usar `EmptyState` (`src/components/ui/EmptyState.tsx`) en
+  vez de mensajes de error o "no hay nada" cuando una tabla todavía no tiene
+  filas — es el estado esperado en varias pantallas mientras no exista el
+  backend de búsqueda/redacción.
 
 ## Tests
 

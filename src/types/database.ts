@@ -133,6 +133,7 @@ export type Database = {
       }
       campaigns: {
         Row: {
+          canal: string
           creado_en: string
           criterio_busqueda: Json
           estado: string
@@ -140,9 +141,12 @@ export type Database = {
           industria: string | null
           nombre: string
           owner_id: string
+          tono_voz: string | null
+          umbral_score: number
           zona: string | null
         }
         Insert: {
+          canal?: string
           creado_en?: string
           criterio_busqueda?: Json
           estado?: string
@@ -150,9 +154,12 @@ export type Database = {
           industria?: string | null
           nombre: string
           owner_id?: string
+          tono_voz?: string | null
+          umbral_score?: number
           zona?: string | null
         }
         Update: {
+          canal?: string
           creado_en?: string
           criterio_busqueda?: Json
           estado?: string
@@ -160,6 +167,8 @@ export type Database = {
           industria?: string | null
           nombre?: string
           owner_id?: string
+          tono_voz?: string | null
+          umbral_score?: number
           zona?: string | null
         }
         Relationships: []

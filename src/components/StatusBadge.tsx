@@ -1,26 +1,22 @@
-import type { CampaignStatus } from '@/data/types';
-import { Badge } from '@/components/ui/Badge';
+import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 
-const statusConfig: Record<CampaignStatus, { label: string; variant: 'success' | 'warning'; pulse: boolean }> = {
-  activa: {
-    label: 'Activa',
-    variant: 'success',
-    pulse: true,
-  },
-  en_curso: {
-    label: 'En curso',
-    variant: 'success',
-    pulse: true,
-  },
-  pausada: {
-    label: 'Pausada',
-    variant: 'warning',
-    pulse: false,
-  },
+const statusConfig: Record<string, { label: string; variant: BadgeVariant; pulse: boolean }> = {
+  activa: { label: 'Activa', variant: 'success', pulse: true },
+  en_curso: { label: 'En curso', variant: 'success', pulse: true },
+  pausada: { label: 'Pausada', variant: 'warning', pulse: false },
+  cerrada: { label: 'Cerrada', variant: 'neutral', pulse: false },
 };
 
-export function StatusBadge({ status }: { status: CampaignStatus }) {
-  const config = statusConfig[status];
+function fallbackConfig(status: string) {
+  return {
+    label: status.charAt(0).toUpperCase() + status.slice(1),
+    variant: 'neutral' as const,
+    pulse: false,
+  };
+}
+
+export function StatusBadge({ status }: { status: string }) {
+  const config = statusConfig[status] ?? fallbackConfig(status);
 
   return (
     <Badge variant={config.variant} dot pulse={config.pulse}>

@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from 'react';
 import { cn } from './cn';
 
-type BadgeVariant = 'success' | 'warning' | 'danger' | 'neutral';
+export type BadgeVariant = 'success' | 'warning' | 'danger' | 'neutral';
 
 const variantClasses: Record<BadgeVariant, string> = {
   success: 'bg-live-soft text-live',
