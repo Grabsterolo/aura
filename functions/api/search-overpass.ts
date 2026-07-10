@@ -22,8 +22,24 @@ interface OverpassResponse {
   elements: OverpassElement[];
 }
 
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter';
-const OVERPASS_TIMEOUT_MS = 28_000;
+const OVERPASS_MIRRORS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+];
+
+const OVERPASS_USER_AGENT = 'ProspectaAura/1.0 (contacto: jpgamboa1309@gmail.com)';
+const OVERPASS_TIMEOUT_MS = 10_000;
+
+class OverpassFetchError extends Error {
+  attempts: string[];
+
+  constructor(attempts: string[]) {
+    super('Todos los mirrors de Overpass fallaron.');
+    this.name = 'OverpassFetchError';
+    this.attempts = attempts;
+  }
+}
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -55,6 +71,56 @@ function hasName(
   element: OverpassElement,
 ): element is OverpassElement & { tags: Record<string, string> & { name: string } } {
   return typeof element.tags?.name === 'string' && element.tags.name.trim().length > 0;
+}
+
+async function fetchOverpassWithFallback(
+  query: string,
+): Promise<{ data: OverpassResponse; mirrorUrl: string }> {
+  const requestHeaders = {
+    'Content-Type': 'text/plain;charset=UTF-8',
+    'User-Agent': OVERPASS_USER_AGENT,
+  };
+
+  const attempts: string[] = [];
+
+  for (const mirrorUrl of OVERPASS_MIRRORS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
+
+    console.log('[search-overpass] intentando mirror', { mirrorUrl, headers: requestHeaders, query });
+
+    try {
+      const response = await fetch(mirrorUrl, {
+        method: 'POST',
+        headers: requestHeaders,
+        body: query,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const bodyText = await response.text();
+        console.error('[search-overpass] mirror respondió con error', {
+          mirrorUrl,
+          status: response.status,
+          bodyText,
+        });
+        attempts.push(`${mirrorUrl} → HTTP ${response.status}: ${bodyText.slice(0, 500)}`);
+        continue;
+      }
+
+      const data = (await response.json()) as OverpassResponse;
+      console.log('[search-overpass] mirror respondió OK', { mirrorUrl });
+      return { data, mirrorUrl };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'error desconocido';
+      console.error('[search-overpass] excepción consultando mirror', { mirrorUrl, message });
+      attempts.push(`${mirrorUrl} → excepción: ${message}`);
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  throw new OverpassFetchError(attempts);
 }
 
 export const onRequestPost: PagesFunction<Env> = async (context) => {
@@ -118,30 +184,18 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   let overpassData: OverpassResponse;
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), OVERPASS_TIMEOUT_MS);
-
-    let overpassResponse: Response;
-    try {
-      overpassResponse = await fetch(OVERPASS_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
-        body: query,
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    if (!overpassResponse.ok) {
+    const result = await fetchOverpassWithFallback(query);
+    overpassData = result.data;
+  } catch (error) {
+    if (error instanceof OverpassFetchError) {
       return jsonResponse(
-        { error: `Overpass respondió con error (${overpassResponse.status}).` },
+        {
+          error: 'No se pudo consultar Overpass en ningún mirror.',
+          detalles: error.attempts,
+        },
         502,
       );
     }
-
-    overpassData = await overpassResponse.json();
-  } catch {
     return jsonResponse({ error: 'No se pudo contactar a Overpass API.' }, 502);
   }
 

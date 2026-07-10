@@ -16,16 +16,19 @@ interface SearchOverpassResponse {
   insertados?: number;
   duplicados_omitidos?: number;
   error?: string;
+  detalles?: string[];
 }
 
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const queryClient = useQueryClient();
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const [resultDetails, setResultDetails] = useState<string[] | null>(null);
 
   const handleTestSearch = async () => {
     setIsSearching(true);
     setResult(null);
+    setResultDetails(null);
 
     try {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -53,6 +56,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
 
       if (!response.ok) {
         setResult(data.error ?? 'Ocurrió un error al buscar prospectos.');
+        setResultDetails(data.detalles ?? null);
         return;
       }
 
@@ -90,6 +94,15 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           {isSearching ? 'Buscando…' : 'Buscar prospectos (prueba)'}
         </Button>
         {result ? <p className="mt-2 text-xs text-secondary">{result}</p> : null}
+        {resultDetails && resultDetails.length > 0 ? (
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {resultDetails.map((detail, index) => (
+              <li key={index} className="break-all text-xs text-error">
+                {detail}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </Card>
   );
