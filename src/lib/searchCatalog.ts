@@ -14,6 +14,22 @@ export const OVERPASS_CATEGORIES: Category[] = [
   { label: 'Restaurantes', osmTag: 'amenity=restaurant' },
   { label: 'Cafeterías', osmTag: 'amenity=cafe' },
   { label: 'Ferreterías', osmTag: 'shop=hardware' },
+  { label: 'Clínicas médicas', osmTag: 'amenity=clinic' },
+  { label: 'Spas', osmTag: 'leisure=spa' },
+  { label: 'Fisioterapia', osmTag: 'healthcare=physiotherapist' },
+  { label: 'Clínicas estéticas', osmTag: 'shop=beauty' },
+  { label: 'Abogados', osmTag: 'office=lawyer' },
+  { label: 'Contadores', osmTag: 'office=accountant' },
+  { label: 'Agencias de bienes raíces', osmTag: 'office=estate_agent' },
+  { label: 'Agencias de seguros', osmTag: 'office=insurance' },
+  { label: 'Cerrajerías', osmTag: 'shop=locksmith' },
+  { label: 'Electricistas', osmTag: 'craft=electrician' },
+  { label: 'Plomeros', osmTag: 'craft=plumber' },
+  { label: 'Lavanderías', osmTag: 'shop=laundry' },
+  { label: 'Guarderías', osmTag: 'amenity=kindergarten' },
+  { label: 'Floristerías', osmTag: 'shop=florist' },
+  { label: 'Llanteras', osmTag: 'shop=tyres' },
+  { label: 'Escuelas y colegios', osmTag: 'amenity=school' },
 ];
 
 export interface City {
