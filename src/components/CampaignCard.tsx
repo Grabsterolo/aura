@@ -13,6 +13,7 @@ interface SearchOverpassResponse {
   encontrados?: number;
   insertados?: number;
   duplicados_omitidos?: number;
+  sedes_agrupadas?: number;
   error?: string;
   detalles?: string[];
 }
@@ -92,7 +93,12 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
       const duplicadosTexto = data.duplicados_omitidos
         ? `, ${data.duplicados_omitidos} duplicados omitidos`
         : '';
-      setResult(`${data.encontrados ?? 0} encontrados, ${data.insertados ?? 0} insertados${duplicadosTexto}.`);
+      const sedesTexto = data.sedes_agrupadas
+        ? `, ${data.sedes_agrupadas} ${data.sedes_agrupadas === 1 ? 'sede agrupada' : 'sedes agrupadas'}`
+        : '';
+      setResult(
+        `${data.encontrados ?? 0} encontrados, ${data.insertados ?? 0} insertados${duplicadosTexto}${sedesTexto}.`,
+      );
       queryClient.invalidateQueries({ queryKey: prospectsKey });
     } catch {
       setResult('No se pudo conectar con el servidor.');

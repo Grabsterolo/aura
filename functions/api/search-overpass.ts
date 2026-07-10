@@ -73,6 +73,16 @@ function hasName(
   return typeof element.tags?.name === 'string' && element.tags.name.trim().length > 0;
 }
 
+function normalizeName(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Mn}/gu, '')
+    .replace(/[^\p{L}\p{N}\s]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function fetchOverpassWithFallback(
   query: string,
 ): Promise<{ data: OverpassResponse; mirrorUrl: string }> {
@@ -207,13 +217,13 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
   const encontrados = named.length;
 
   if (encontrados === 0) {
-    return jsonResponse({ encontrados: 0, insertados: 0, duplicados_omitidos: 0 }, 200);
+    return jsonResponse({ encontrados: 0, insertados: 0, duplicados_omitidos: 0, sedes_agrupadas: 0 }, 200);
   }
 
   const { data: existingProspects, error: existingError } = await supabaseAdmin
     .from('prospects')
-    .select('fuente_ids')
-    .eq('campaign_id', campaignId);
+    .select('fuente_ids, nombre_negocio')
+    .eq('owner_id', userId);
 
   if (existingError) {
     return jsonResponse({ error: 'No se pudieron revisar los prospectos existentes.' }, 500);
@@ -228,11 +238,37 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       .filter((id): id is string => id !== null),
   );
 
-  const newElements = named.filter((element) => !existingOsmIds.has(String(element.id)));
-  const duplicadosOmitidos = named.length - newElements.length;
+  const existingNames = new Set(
+    (existingProspects ?? []).map((prospect) => normalizeName(prospect.nombre_negocio)),
+  );
+
+  const seenNamesInBatch = new Set<string>();
+  const newElements: (OverpassElement & { tags: Record<string, string> & { name: string } })[] = [];
+  let duplicadosOmitidos = 0;
+  let sedesAgrupadas = 0;
+
+  for (const element of named) {
+    if (existingOsmIds.has(String(element.id))) {
+      duplicadosOmitidos += 1;
+      continue;
+    }
+
+    const normalizedName = normalizeName(element.tags.name);
+
+    if (existingNames.has(normalizedName) || seenNamesInBatch.has(normalizedName)) {
+      sedesAgrupadas += 1;
+      continue;
+    }
+
+    seenNamesInBatch.add(normalizedName);
+    newElements.push(element);
+  }
 
   if (newElements.length === 0) {
-    return jsonResponse({ encontrados, insertados: 0, duplicados_omitidos: duplicadosOmitidos }, 200);
+    return jsonResponse(
+      { encontrados, insertados: 0, duplicados_omitidos: duplicadosOmitidos, sedes_agrupadas: sedesAgrupadas },
+      200,
+    );
   }
 
   const rowsToInsert: TablesInsert<'prospects'>[] = newElements.map((element) => ({
@@ -264,6 +300,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       encontrados,
       insertados: inserted?.length ?? rowsToInsert.length,
       duplicados_omitidos: duplicadosOmitidos,
+      sedes_agrupadas: sedesAgrupadas,
     },
     200,
   );
