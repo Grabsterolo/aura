@@ -65,8 +65,11 @@ de `components/ui/`) pueden seguir usando `./`.
   `Context` y el hook van juntos en el mismo archivo (patrón usado en
   `useTheme.ts` y `useAuth.ts`). `src/hooks/queries/` es solo para hooks de
   React Query (ver arriba).
-- `src/lib/` — clientes e integraciones externas (Supabase, React Query) y
-  utilidades chicas compartidas (ej. `formatDate.ts`)
+- `src/lib/` — clientes e integraciones externas (Supabase, React Query),
+  utilidades chicas compartidas (ej. `formatDate.ts`) y catálogos estáticos
+  (`searchCatalog.ts`: categorías de negocio con su tag de OSM y países/
+  ciudades de LATAM con coordenadas — de acá sale `criterio_busqueda` al
+  crear/editar una campaña en `CampaignForm`)
 - `src/types/` — tipos generados del esquema real de Supabase
   (`database.ts`, regenerado desde el proyecto — no editar a mano) y
   `index.ts`, que re-exporta los tipos de tabla (`Tables<'campaigns'>`, etc.)

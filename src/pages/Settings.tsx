@@ -53,6 +53,7 @@ export function Settings() {
       tono_voz: values.tono_voz || null,
       umbral_score: values.umbral_score,
       estado: values.estado,
+      criterio_busqueda: values.criterio_busqueda,
     };
 
     updateCampaign.mutate({ id: selectedCampaign.id, values: updateValues });

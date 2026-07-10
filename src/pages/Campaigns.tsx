@@ -19,6 +19,7 @@ export function Campaigns() {
       zona: values.zona || null,
       tono_voz: values.tono_voz || null,
       umbral_score: values.umbral_score,
+      criterio_busqueda: values.criterio_busqueda,
     };
 
     createCampaign.mutate(input, {

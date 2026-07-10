@@ -8,9 +8,6 @@ import { formatDate } from '@/lib/formatDate';
 import { supabase } from '@/lib/supabaseClient';
 import { prospectsKey } from '@/hooks/queries/useProspects';
 
-const TEST_OSM_TAG = 'amenity=dentist';
-const TEST_BBOX: [number, number, number, number] = [9.85, -84.2, 10.05, -83.95];
-
 interface SearchOverpassResponse {
   encontrados?: number;
   insertados?: number;
@@ -19,13 +16,42 @@ interface SearchOverpassResponse {
   detalles?: string[];
 }
 
+interface SearchCriteria {
+  osm_tag: string;
+  bbox: [number, number, number, number];
+}
+
+function parseCriterioBusqueda(value: Campaign['criterio_busqueda']): SearchCriteria | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const osmTag = record.osm_tag;
+  const bbox = record.bbox;
+
+  if (typeof osmTag !== 'string') {
+    return null;
+  }
+
+  if (!Array.isArray(bbox) || bbox.length !== 4 || !bbox.every((n) => typeof n === 'number')) {
+    return null;
+  }
+
+  return { osm_tag: osmTag, bbox: bbox as [number, number, number, number] };
+}
+
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   const queryClient = useQueryClient();
   const [isSearching, setIsSearching] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [resultDetails, setResultDetails] = useState<string[] | null>(null);
 
-  const handleTestSearch = async () => {
+  const criteria = parseCriterioBusqueda(campaign.criterio_busqueda);
+
+  const handleSearch = async () => {
+    if (!criteria) return;
+
     setIsSearching(true);
     setResult(null);
     setResultDetails(null);
@@ -47,8 +73,8 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
         },
         body: JSON.stringify({
           campaign_id: campaign.id,
-          osm_tag: TEST_OSM_TAG,
-          bbox: TEST_BBOX,
+          osm_tag: criteria.osm_tag,
+          bbox: criteria.bbox,
         }),
       });
 
@@ -88,11 +114,16 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           type="button"
           variant="secondary"
           size="sm"
-          disabled={isSearching}
-          onClick={handleTestSearch}
+          disabled={isSearching || !criteria}
+          onClick={handleSearch}
         >
-          {isSearching ? 'Buscando…' : 'Buscar prospectos (prueba)'}
+          {isSearching ? 'Buscando…' : 'Buscar prospectos'}
         </Button>
+        {!criteria ? (
+          <p className="mt-2 text-xs text-muted">
+            Definí categoría y zona en Configuración para poder buscar.
+          </p>
+        ) : null}
         {result ? <p className="mt-2 text-xs text-secondary">{result}</p> : null}
         {resultDetails && resultDetails.length > 0 ? (
           <ul className="mt-1 flex flex-col gap-0.5">
