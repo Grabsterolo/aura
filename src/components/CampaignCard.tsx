@@ -1,10 +1,11 @@
-import type { Campaign } from '../data/types';
-import { StatusBadge } from './StatusBadge';
-import { ProgressBar } from './ProgressBar';
+import type { Campaign } from '@/data/types';
+import { StatusBadge } from '@/components/StatusBadge';
+import { ProgressBar } from '@/components/ProgressBar';
+import { Card } from '@/components/ui/Card';
 
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
   return (
-    <div className="rounded-card border border-border bg-panel p-4 transition-all duration-200 ease-out hover:-translate-y-0.5 hover:border-accent">
+    <Card hoverable>
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-medium text-primary">{campaign.name}</p>
@@ -25,6 +26,6 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
         </div>
         <ProgressBar value={campaign.auditProgress} />
       </div>
-    </div>
+    </Card>
   );
 }

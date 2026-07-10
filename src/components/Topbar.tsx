@@ -1,7 +1,7 @@
 import { LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { ThemeToggle } from './ThemeToggle';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 
 export function Topbar({ title }: { title: string }) {
   const { signOut } = useAuth();

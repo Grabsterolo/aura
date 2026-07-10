@@ -1,5 +1,5 @@
 import { CalendarCheck, PenLine, Sparkles } from 'lucide-react';
-import type { ActivityItem, ActivityType } from '../data/types';
+import type { ActivityItem, ActivityType } from '@/data/types';
 
 const iconByType: Record<ActivityType, typeof CalendarCheck> = {
   call_agendada: CalendarCheck,

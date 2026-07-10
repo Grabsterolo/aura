@@ -1,20 +1,21 @@
-import type { CampaignStatus } from '../data/types';
+import type { CampaignStatus } from '@/data/types';
+import { Badge } from '@/components/ui/Badge';
 
-const statusConfig: Record<CampaignStatus, { label: string; dot: boolean; className: string }> = {
+const statusConfig: Record<CampaignStatus, { label: string; variant: 'success' | 'warning'; pulse: boolean }> = {
   activa: {
     label: 'Activa',
-    dot: true,
-    className: 'bg-live-soft text-live',
+    variant: 'success',
+    pulse: true,
   },
   en_curso: {
     label: 'En curso',
-    dot: true,
-    className: 'bg-live-soft text-live',
+    variant: 'success',
+    pulse: true,
   },
   pausada: {
     label: 'Pausada',
-    dot: false,
-    className: 'bg-warning-soft text-warning',
+    variant: 'warning',
+    pulse: false,
   },
 };
 
@@ -22,13 +23,8 @@ export function StatusBadge({ status }: { status: CampaignStatus }) {
   const config = statusConfig[status];
 
   return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${config.className}`}
-    >
-      <span
-        className={`h-1.5 w-1.5 rounded-full bg-current ${config.dot ? 'animate-pulse-live' : ''}`}
-      />
+    <Badge variant={config.variant} dot pulse={config.pulse}>
       {config.label}
-    </span>
+    </Badge>
   );
 }

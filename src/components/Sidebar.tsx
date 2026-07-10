@@ -7,7 +7,7 @@ import {
   MessageSquare,
   Settings,
 } from 'lucide-react';
-import { pendingApprovalsCount } from '../data/mockData';
+import { pendingApprovalsCount } from '@/data/mockData';
 
 interface NavItem {
   to: string;

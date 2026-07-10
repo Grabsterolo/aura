@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { MetricCard } from '../components/MetricCard';
-import { CampaignCard } from '../components/CampaignCard';
-import { ApprovalCard } from '../components/ApprovalCard';
-import { ActivityTimeline } from '../components/ActivityTimeline';
-import { metricCards, campaigns, approvalDrafts, recentActivity } from '../data/mockData';
+import { MetricCard } from '@/components/MetricCard';
+import { CampaignCard } from '@/components/CampaignCard';
+import { ApprovalCard } from '@/components/ApprovalCard';
+import { ActivityTimeline } from '@/components/ActivityTimeline';
+import { metricCards, campaigns, approvalDrafts, recentActivity } from '@/data/mockData';
 
 export function Dashboard() {
   return (

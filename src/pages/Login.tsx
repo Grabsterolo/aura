@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { Navigate } from 'react-router-dom';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 
 export function Login() {
   const { session, loading, signIn } = useAuth();
@@ -44,45 +46,31 @@ export function Login() {
         <p className="mt-1 text-center text-sm text-secondary">Ingresá a tu cuenta</p>
 
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="email" className="text-xs font-medium text-secondary">
-              Correo
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="rounded-control px-3 py-2 text-sm outline-none transition-colors duration-150 ease-out focus:border-accent"
-            />
-          </div>
+          <Input
+            id="email"
+            label="Correo"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+          />
 
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="password" className="text-xs font-medium text-secondary">
-              Contraseña
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="rounded-control px-3 py-2 text-sm outline-none transition-colors duration-150 ease-out focus:border-accent"
-            />
-          </div>
+          <Input
+            id="password"
+            label="Contraseña"
+            type="password"
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+          />
 
           {error ? <p className="text-sm text-error">{error}</p> : null}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="mt-2 rounded-control bg-accent px-4 py-2 text-sm font-medium text-white transition-all duration-150 ease-out hover:-translate-y-px hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
-          >
+          <Button type="submit" disabled={submitting} className="mt-2">
             {submitting ? 'Entrando…' : 'Entrar'}
-          </button>
+          </Button>
         </form>
       </div>
     </div>

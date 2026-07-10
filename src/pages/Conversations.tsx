@@ -1,4 +1,4 @@
-import { PagePlaceholder } from '../components/PagePlaceholder';
+import { PagePlaceholder } from '@/components/PagePlaceholder';
 
 export function Conversations() {
   return (

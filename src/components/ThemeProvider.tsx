@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ThemeContext, THEME_STORAGE_KEY, getInitialTheme, type Theme } from '../hooks/useTheme';
+import { ThemeContext, THEME_STORAGE_KEY, getInitialTheme, type Theme } from '@/hooks/useTheme';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => getInitialTheme());
