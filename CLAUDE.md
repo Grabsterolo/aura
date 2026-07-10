@@ -30,7 +30,19 @@ gestiona el contacto con aprobación humana obligatoria en esta fase.
   cualquier entidad nueva — no inventar un patrón de fetching distinto por
   página.
 - Cloudflare Pages (frontend) + Cloudflare Pages Functions (backend, carpeta
-  `functions/` en la raíz — todavía no creada)
+  `functions/api/` en la raíz, ruteada automáticamente a `/api/*` por
+  Cloudflare — no corren con `npm run dev`, necesitan un deploy de Pages).
+  Tienen su propio `functions/tsconfig.json` (referenciado desde el
+  `tsconfig.json` raíz, así `npm run build` también las type-checkea).
+  Nunca se llaman desde el cliente con claves privadas: usan
+  `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` (sin prefijo `VITE_`,
+  configuradas como env vars en el dashboard de Cloudflare Pages, nunca en
+  `.env.local`) para crear un cliente admin, validan el usuario con
+  `supabaseAdmin.auth.getUser(token)` a partir del header
+  `Authorization: Bearer <token>` que manda el cliente (nunca confiar en un
+  `owner_id` que venga en el body), y devuelven JSON con status codes
+  explícitos (401 sin token, 403 si el recurso no es del usuario, 502 si
+  falla un servicio externo). Ver `functions/api/search-overpass.ts`.
 - Vitest + Testing Library para tests (`npm run test`)
 
 ## Alias de imports
@@ -59,6 +71,10 @@ de `components/ui/`) pueden seguir usando `./`.
   (`database.ts`, regenerado desde el proyecto — no editar a mano) y
   `index.ts`, que re-exporta los tipos de tabla (`Tables<'campaigns'>`, etc.)
   con nombres cómodos (`Campaign`, `Prospect`, ...) para el resto de la app
+- `functions/api/` — Cloudflare Pages Functions (backend). Un archivo por
+  endpoint, exportando `onRequestGet`/`onRequestPost`/etc. Importan tipos de
+  `src/types/database.ts` con ruta relativa (no usan el alias `@/`, que es
+  solo para Vite/`src`).
 
 ## Auth
 
