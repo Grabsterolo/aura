@@ -10,6 +10,7 @@ interface SearchOverpassBody {
   campaign_id: string;
   osm_tag: string;
   bbox: [number, number, number, number];
+  city_name?: string;
 }
 
 interface OverpassElement {
@@ -123,6 +124,95 @@ function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2:
   return EARTH_RADIUS_METERS * c;
 }
 
+// Offset estándar de Overpass para convertir un id de relation en un area id
+// (ways usan 2400000000, relations usan 3600000000).
+const RELATION_AREA_OFFSET = 3_600_000_000;
+
+function buildBboxQuery(key: string, value: string, bbox: [number, number, number, number]): string {
+  const [south, west, north, east] = bbox;
+  return `[out:json][timeout:25];\nnwr["${key}"="${escapeOverpassValue(value)}"](${south},${west},${north},${east});\nout center tags;`;
+}
+
+function buildAreaQuery(key: string, value: string, areaId: number): string {
+  return `[out:json][timeout:25];\narea(id:${areaId})->.searchArea;\nnwr["${key}"="${escapeOverpassValue(value)}"](area.searchArea);\nout center tags;`;
+}
+
+function buildAdminBoundaryCandidatesQuery(
+  cityName: string,
+  bbox: [number, number, number, number],
+): string {
+  const [south, west, north, east] = bbox;
+  return `[out:json][timeout:25];\nrelation["boundary"="administrative"]["name"="${escapeOverpassValue(cityName)}"](${south},${west},${north},${east});\nout tags;`;
+}
+
+// Resuelve el límite administrativo real de una ciudad por nombre, en vez de
+// aproximar con el bbox cuadrado del catálogo (que en zonas con cantones muy
+// pegados, como el GAM de Costa Rica, se mete fácilmente en cantones vecinos).
+// El bbox se usa acá solo para filtrar candidatos por nombre, no como área final.
+//
+// Si hay más de un límite administrativo con ese nombre dentro del bbox (ej. una
+// provincia y un cantón que comparten nombre), preferimos el admin_level numérico
+// más alto (el más específico/local) en vez de dejar que Overpass una todos los
+// que matchean. Si no hay ningún candidato válido (o la consulta falla), devuelve
+// null para que el caller haga fallback al bbox de siempre — nunca debe romper la
+// búsqueda por esto.
+async function resolveCityAreaId(
+  cityName: string,
+  bbox: [number, number, number, number],
+): Promise<number | null> {
+  const query = buildAdminBoundaryCandidatesQuery(cityName, bbox);
+
+  let data: OverpassResponse;
+  try {
+    const result = await fetchOverpassWithFallback(query);
+    data = result.data;
+  } catch (error) {
+    console.error('[search-overpass] no se pudo resolver el área administrativa, se usa bbox', {
+      cityName,
+      error: error instanceof Error ? error.message : error,
+    });
+    return null;
+  }
+
+  if (!data || !Array.isArray(data.elements)) {
+    return null;
+  }
+
+  let bestRelationId: number | null = null;
+  let bestAdminLevel = -Infinity;
+
+  for (const element of data.elements) {
+    if (element.type !== 'relation') continue;
+
+    const adminLevelRaw = element.tags?.admin_level;
+    if (!adminLevelRaw) continue;
+
+    const adminLevel = Number.parseInt(adminLevelRaw, 10);
+    if (!Number.isFinite(adminLevel)) continue;
+
+    if (adminLevel > bestAdminLevel) {
+      bestAdminLevel = adminLevel;
+      bestRelationId = element.id;
+    }
+  }
+
+  if (bestRelationId === null) {
+    console.log('[search-overpass] ningún límite administrativo coincide con el nombre, se usa bbox', {
+      cityName,
+      candidatos: data.elements.length,
+    });
+    return null;
+  }
+
+  console.log('[search-overpass] área administrativa resuelta', {
+    cityName,
+    relationId: bestRelationId,
+    adminLevel: bestAdminLevel,
+  });
+
+  return RELATION_AREA_OFFSET + bestRelationId;
+}
+
 async function fetchOverpassWithFallback(
   query: string,
 ): Promise<{ data: OverpassResponse; mirrorUrl: string }> {
@@ -200,7 +290,8 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return jsonResponse({ error: 'El body debe ser JSON válido.' }, 400);
   }
 
-  const { campaign_id: campaignId, osm_tag: osmTag, bbox } = body;
+  const { campaign_id: campaignId, osm_tag: osmTag, bbox, city_name: cityNameRaw } = body;
+  const cityName = typeof cityNameRaw === 'string' && cityNameRaw.trim() ? cityNameRaw.trim() : undefined;
 
   if (!campaignId || typeof osmTag !== 'string' || !isValidBbox(bbox)) {
     return jsonResponse(
@@ -229,8 +320,16 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return jsonResponse({ error: 'La campaña no existe o no te pertenece.' }, 403);
   }
 
-  const [south, west, north, east] = bbox;
-  const query = `[out:json][timeout:25];\nnwr["${parsedTag.key}"="${escapeOverpassValue(parsedTag.value)}"](${south},${west},${north},${east});\nout center tags;`;
+  let query: string;
+  if (cityName) {
+    const areaId = await resolveCityAreaId(cityName, bbox);
+    query =
+      areaId !== null
+        ? buildAreaQuery(parsedTag.key, parsedTag.value, areaId)
+        : buildBboxQuery(parsedTag.key, parsedTag.value, bbox);
+  } else {
+    query = buildBboxQuery(parsedTag.key, parsedTag.value, bbox);
+  }
 
   let overpassData: OverpassResponse;
   try {

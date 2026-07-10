@@ -104,6 +104,16 @@ function ProspectGroupSection({ title, prospects }: { title: string; prospects: 
                 <span className="text-xs text-muted">{prospect.campaigns?.nombre ?? 'Sin campaña'}</span>
               </div>
               <p className="mt-1 text-xs text-muted">{prospect.categoria ?? 'Sin categoría'}</p>
+              {prospect.lat !== null && prospect.lon !== null ? (
+                <a
+                  href={`https://www.openstreetmap.org/?mlat=${prospect.lat}&mlon=${prospect.lon}#map=18/${prospect.lat}/${prospect.lon}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+                >
+                  Ver en el mapa
+                </a>
+              ) : null}
             </Card>
           ))}
         </div>

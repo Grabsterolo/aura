@@ -8,7 +8,7 @@ export interface CampaignFormValues {
   nombre: string;
   industria: string;
   zona: string;
-  criterio_busqueda: { osm_tag: string; bbox: [number, number, number, number] };
+  criterio_busqueda: { osm_tag: string; bbox: [number, number, number, number]; city_name: string };
   tono_voz: string;
   umbral_score: number;
   estado: string;
@@ -94,7 +94,7 @@ export function CampaignForm({
       nombre,
       industria: category.label,
       zona: `${city.label}, ${country.label}`,
-      criterio_busqueda: { osm_tag: category.osmTag, bbox: cityToBbox(city) },
+      criterio_busqueda: { osm_tag: category.osmTag, bbox: cityToBbox(city), city_name: city.label },
       tono_voz: tonoVoz,
       umbral_score: umbralScore,
       estado,

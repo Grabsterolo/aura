@@ -21,6 +21,7 @@ interface SearchOverpassResponse {
 interface SearchCriteria {
   osm_tag: string;
   bbox: [number, number, number, number];
+  city_name?: string;
 }
 
 function parseCriterioBusqueda(value: Campaign['criterio_busqueda']): SearchCriteria | null {
@@ -31,6 +32,7 @@ function parseCriterioBusqueda(value: Campaign['criterio_busqueda']): SearchCrit
   const record = value as Record<string, unknown>;
   const osmTag = record.osm_tag;
   const bbox = record.bbox;
+  const cityName = record.city_name;
 
   if (typeof osmTag !== 'string') {
     return null;
@@ -40,7 +42,11 @@ function parseCriterioBusqueda(value: Campaign['criterio_busqueda']): SearchCrit
     return null;
   }
 
-  return { osm_tag: osmTag, bbox: bbox as [number, number, number, number] };
+  return {
+    osm_tag: osmTag,
+    bbox: bbox as [number, number, number, number],
+    city_name: typeof cityName === 'string' ? cityName : undefined,
+  };
 }
 
 export function CampaignCard({ campaign }: { campaign: Campaign }) {
@@ -79,6 +85,7 @@ export function CampaignCard({ campaign }: { campaign: Campaign }) {
           campaign_id: campaign.id,
           osm_tag: criteria.osm_tag,
           bbox: criteria.bbox,
+          city_name: criteria.city_name,
         }),
       });
 
