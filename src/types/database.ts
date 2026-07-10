@@ -296,6 +296,7 @@ export type Database = {
       }
       prospects: {
         Row: {
+          barrio: string | null
           campaign_id: string | null
           categoria: string | null
           contactable: boolean | null
@@ -312,6 +313,7 @@ export type Database = {
           owner_id: string
         }
         Insert: {
+          barrio?: string | null
           campaign_id?: string | null
           categoria?: string | null
           contactable?: boolean | null
@@ -328,6 +330,7 @@ export type Database = {
           owner_id?: string
         }
         Update: {
+          barrio?: string | null
           campaign_id?: string | null
           categoria?: string | null
           contactable?: boolean | null

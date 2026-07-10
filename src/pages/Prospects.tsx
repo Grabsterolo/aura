@@ -5,11 +5,35 @@ import { useProspects, type ProspectWithCampaign } from '@/hooks/queries/usePros
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { OVERPASS_CATEGORIES } from '@/lib/searchCatalog';
 
 interface ProspectGroup {
   key: string;
   title: string;
   prospects: ProspectWithCampaign[];
+}
+
+interface ProspectContact {
+  telefono: string | null;
+  email: string | null;
+}
+
+function getCategoryLabel(categoria: string | null): string | null {
+  if (!categoria) return null;
+  const match = OVERPASS_CATEGORIES.find((category) => category.osmTag === categoria);
+  return match ? match.label : categoria;
+}
+
+function getContact(contacto: ProspectWithCampaign['contacto']): ProspectContact {
+  if (!contacto || typeof contacto !== 'object' || Array.isArray(contacto)) {
+    return { telefono: null, email: null };
+  }
+
+  const record = contacto as Record<string, unknown>;
+  return {
+    telefono: typeof record.telefono === 'string' ? record.telefono : null,
+    email: typeof record.email === 'string' ? record.email : null,
+  };
 }
 
 export function Prospects() {
@@ -97,25 +121,35 @@ function ProspectGroupSection({ title, prospects }: { title: string; prospects: 
 
       {isExpanded ? (
         <div className="mt-2 flex flex-col gap-3 pl-6">
-          {prospects.map((prospect) => (
-            <Card key={prospect.id} hoverable>
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium text-primary">{prospect.nombre_negocio}</p>
-                <span className="text-xs text-muted">{prospect.campaigns?.nombre ?? 'Sin campaña'}</span>
-              </div>
-              <p className="mt-1 text-xs text-muted">{prospect.categoria ?? 'Sin categoría'}</p>
-              {prospect.lat !== null && prospect.lon !== null ? (
-                <a
-                  href={`https://www.openstreetmap.org/?mlat=${prospect.lat}&mlon=${prospect.lon}#map=18/${prospect.lat}/${prospect.lon}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
-                >
-                  Ver en el mapa
-                </a>
-              ) : null}
-            </Card>
-          ))}
+          {prospects.map((prospect) => {
+            const categoryLabel = getCategoryLabel(prospect.categoria);
+            const contact = getContact(prospect.contacto);
+            const contactLine = [contact.telefono, contact.email].filter(Boolean).join(' · ');
+
+            return (
+              <Card key={prospect.id} hoverable>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-primary">{prospect.nombre_negocio}</p>
+                  <span className="text-xs text-muted">{prospect.campaigns?.nombre ?? 'Sin campaña'}</span>
+                </div>
+                <p className="mt-1 text-xs text-muted">
+                  {categoryLabel ?? 'Sin categoría'}
+                  {prospect.barrio ? ` · ${prospect.barrio}` : ''}
+                </p>
+                {contactLine ? <p className="mt-1 text-xs text-muted">{contactLine}</p> : null}
+                {prospect.lat !== null && prospect.lon !== null ? (
+                  <a
+                    href={`https://www.openstreetmap.org/?mlat=${prospect.lat}&mlon=${prospect.lon}#map=18/${prospect.lat}/${prospect.lon}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-xs font-medium text-accent hover:underline"
+                  >
+                    Ver en el mapa
+                  </a>
+                ) : null}
+              </Card>
+            );
+          })}
         </div>
       ) : null}
     </div>

@@ -114,6 +114,10 @@ function getElementCoords(element: OverpassElement): Coords | null {
   return null;
 }
 
+function getBarrio(tags: Record<string, string>): string | null {
+  return tags['addr:suburb'] ?? tags['addr:neighbourhood'] ?? tags['addr:city'] ?? null;
+}
+
 function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = (deg: number) => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
@@ -453,6 +457,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       estado: 'encontrado',
       lat: coords?.lat ?? null,
       lon: coords?.lon ?? null,
+      barrio: getBarrio(element.tags),
     };
   });
 
