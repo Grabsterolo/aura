@@ -16,10 +16,18 @@ interface OverpassElement {
   type: string;
   id: number;
   tags?: Record<string, string>;
+  lat?: number;
+  lon?: number;
+  center?: { lat: number; lon: number };
 }
 
 interface OverpassResponse {
   elements: OverpassElement[];
+}
+
+interface Coords {
+  lat: number;
+  lon: number;
 }
 
 const OVERPASS_MIRRORS = [
@@ -30,6 +38,13 @@ const OVERPASS_MIRRORS = [
 
 const OVERPASS_USER_AGENT = 'ProspectaAura/1.0 (contacto: jpgamboa1309@gmail.com)';
 const OVERPASS_TIMEOUT_MS = 10_000;
+const EARTH_RADIUS_METERS = 6_371_000;
+
+// 2km: suficientemente grande para cubrir sedes reales de una misma cadena en la
+// misma zona comercial, suficientemente chico para no fusionar negocios distintos
+// que comparten un nombre genérico (ej. "Barber Shop") pero están dispersos por
+// la ciudad.
+const DEDUP_RADIUS_METERS = 2000;
 
 class OverpassFetchError extends Error {
   attempts: string[];
@@ -81,6 +96,31 @@ function normalizeName(name: string): string {
     .replace(/[^\p{L}\p{N}\s]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function getElementCoords(element: OverpassElement): Coords | null {
+  if (element.type === 'node') {
+    if (typeof element.lat === 'number' && typeof element.lon === 'number') {
+      return { lat: element.lat, lon: element.lon };
+    }
+    return null;
+  }
+
+  if (typeof element.center?.lat === 'number' && typeof element.center?.lon === 'number') {
+    return { lat: element.center.lat, lon: element.center.lon };
+  }
+
+  return null;
+}
+
+function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return EARTH_RADIUS_METERS * c;
 }
 
 async function fetchOverpassWithFallback(
@@ -222,7 +262,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const { data: existingProspects, error: existingError } = await supabaseAdmin
     .from('prospects')
-    .select('fuente_ids, nombre_negocio')
+    .select('fuente_ids, nombre_negocio, lat, lon')
     .eq('owner_id', userId);
 
   if (existingError) {
@@ -238,11 +278,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
       .filter((id): id is string => id !== null),
   );
 
-  const existingNames = new Set(
-    (existingProspects ?? []).map((prospect) => normalizeName(prospect.nombre_negocio)),
-  );
+  // Nombre normalizado -> ubicaciones conocidas con ese nombre (existentes + las que
+  // se van agregando de este mismo batch, a medida que se procesa cada elemento).
+  const nameLocations = new Map<string, Coords[]>();
 
-  const seenNamesInBatch = new Set<string>();
+  for (const prospect of existingProspects ?? []) {
+    const normalized = normalizeName(prospect.nombre_negocio);
+    const locations = nameLocations.get(normalized) ?? [];
+    if (typeof prospect.lat === 'number' && typeof prospect.lon === 'number') {
+      locations.push({ lat: prospect.lat, lon: prospect.lon });
+    }
+    nameLocations.set(normalized, locations);
+  }
+
   const newElements: (OverpassElement & { tags: Record<string, string> & { name: string } })[] = [];
   let duplicadosOmitidos = 0;
   let sedesAgrupadas = 0;
@@ -254,13 +302,31 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     }
 
     const normalizedName = normalizeName(element.tags.name);
+    const elementCoords = getElementCoords(element);
+    const knownLocations = nameLocations.get(normalizedName);
 
-    if (existingNames.has(normalizedName) || seenNamesInBatch.has(normalizedName)) {
-      sedesAgrupadas += 1;
-      continue;
+    if (knownLocations !== undefined && elementCoords && knownLocations.length > 0) {
+      const isNearby = knownLocations.some(
+        (coords) =>
+          haversineDistanceMeters(elementCoords.lat, elementCoords.lon, coords.lat, coords.lon) <=
+          DEDUP_RADIUS_METERS,
+      );
+
+      if (isNearby) {
+        sedesAgrupadas += 1;
+        continue;
+      }
     }
+    // Nombre repetido sin coordenadas de un lado u otro (no se puede confirmar
+    // cercanía) o todas las ubicaciones conocidas superan el radio: se trata como
+    // un negocio distinto y se inserta.
 
-    seenNamesInBatch.add(normalizedName);
+    const locations = nameLocations.get(normalizedName) ?? [];
+    if (elementCoords) {
+      locations.push(elementCoords);
+    }
+    nameLocations.set(normalizedName, locations);
+
     newElements.push(element);
   }
 
@@ -271,20 +337,25 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     );
   }
 
-  const rowsToInsert: TablesInsert<'prospects'>[] = newElements.map((element) => ({
-    owner_id: userId,
-    campaign_id: campaignId,
-    nombre_negocio: element.tags.name,
-    categoria: osmTag,
-    contacto: {
-      email: element.tags.email ?? null,
-      telefono: element.tags.phone ?? element.tags['contact:phone'] ?? null,
-      web: element.tags.website ?? element.tags['contact:website'] ?? null,
-    },
-    fuente: 'overpass',
-    fuente_ids: { osm_id: element.id, osm_type: element.type },
-    estado: 'encontrado',
-  }));
+  const rowsToInsert: TablesInsert<'prospects'>[] = newElements.map((element) => {
+    const coords = getElementCoords(element);
+    return {
+      owner_id: userId,
+      campaign_id: campaignId,
+      nombre_negocio: element.tags.name,
+      categoria: osmTag,
+      contacto: {
+        email: element.tags.email ?? null,
+        telefono: element.tags.phone ?? element.tags['contact:phone'] ?? null,
+        web: element.tags.website ?? element.tags['contact:website'] ?? null,
+      },
+      fuente: 'overpass',
+      fuente_ids: { osm_id: element.id, osm_type: element.type },
+      estado: 'encontrado',
+      lat: coords?.lat ?? null,
+      lon: coords?.lon ?? null,
+    };
+  });
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('prospects')

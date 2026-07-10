@@ -7,8 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -300,37 +298,49 @@ export type Database = {
         Row: {
           campaign_id: string | null
           categoria: string | null
+          contactable: boolean | null
           contacto: Json
           creado_en: string
           estado: string
           fuente: string | null
           fuente_ids: Json
           id: string
+          lat: number | null
+          lon: number | null
           nombre_negocio: string
+          nombre_normalizado: string | null
           owner_id: string
         }
         Insert: {
           campaign_id?: string | null
           categoria?: string | null
+          contactable?: boolean | null
           contacto?: Json
           creado_en?: string
           estado?: string
           fuente?: string | null
           fuente_ids?: Json
           id?: string
+          lat?: number | null
+          lon?: number | null
           nombre_negocio: string
+          nombre_normalizado?: string | null
           owner_id?: string
         }
         Update: {
           campaign_id?: string | null
           categoria?: string | null
+          contactable?: boolean | null
           contacto?: Json
           creado_en?: string
           estado?: string
           fuente?: string | null
           fuente_ids?: Json
           id?: string
+          lat?: number | null
+          lon?: number | null
           nombre_negocio?: string
+          nombre_normalizado?: string | null
           owner_id?: string
         }
         Relationships: [
@@ -383,7 +393,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      immutable_unaccent: { Args: { "": string }; Returns: string }
+      normalize_nombre_negocio: { Args: { "": string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
