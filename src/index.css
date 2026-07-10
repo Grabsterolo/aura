@@ -1,0 +1,98 @@
+@import 'tailwindcss';
+
+:root,
+[data-theme='dark'] {
+  --raw-page: #0b0c10;
+  --raw-panel: #15161d;
+  --raw-border: #23242e;
+  --raw-primary: #e4e4ea;
+  --raw-secondary: #9a9aa5;
+  --raw-muted: #5a5a66;
+
+  --raw-accent: #7c5cff;
+  --raw-accent-hover: #8f71ff;
+  --raw-live: #00e5c0;
+  --raw-live-soft: rgba(0, 229, 192, 0.12);
+  --raw-warning: #f5a623;
+  --raw-warning-soft: rgba(245, 166, 35, 0.14);
+  --raw-error: #ff5c5c;
+  --raw-error-soft: rgba(255, 92, 92, 0.14);
+}
+
+[data-theme='light'] {
+  --raw-page: #f7f7f9;
+  --raw-panel: #ffffff;
+  --raw-border: #e5e5ea;
+  --raw-primary: #16161d;
+  --raw-secondary: #5a5a66;
+  --raw-muted: #9a9aa5;
+
+  --raw-accent: #7c5cff;
+  --raw-accent-hover: #6a48f2;
+  --raw-live: #00b598;
+  --raw-live-soft: rgba(0, 181, 152, 0.1);
+  --raw-warning: #b5720f;
+  --raw-warning-soft: rgba(181, 114, 15, 0.1);
+  --raw-error: #d43d3d;
+  --raw-error-soft: rgba(212, 61, 61, 0.1);
+}
+
+@theme {
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --color-page: var(--raw-page);
+  --color-panel: var(--raw-panel);
+  --color-border: var(--raw-border);
+  --color-primary: var(--raw-primary);
+  --color-secondary: var(--raw-secondary);
+  --color-muted: var(--raw-muted);
+  --color-accent: var(--raw-accent);
+  --color-accent-hover: var(--raw-accent-hover);
+  --color-live: var(--raw-live);
+  --color-live-soft: var(--raw-live-soft);
+  --color-warning: var(--raw-warning);
+  --color-warning-soft: var(--raw-warning-soft);
+  --color-error: var(--raw-error);
+  --color-error-soft: var(--raw-error-soft);
+
+  --radius-control: 8px;
+  --radius-card: 12px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--raw-page);
+  color: var(--raw-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100%;
+}
+
+@keyframes pulse-live {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+}
+
+.animate-pulse-live {
+  animation: pulse-live 1.8s ease-in-out infinite;
+}
