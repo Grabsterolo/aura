@@ -16,8 +16,10 @@ gestiona el contacto con aprobación humana obligatoria en esta fase.
   `data-theme` en `<html>` (ver `src/hooks/useTheme.ts` y
   `src/components/ThemeProvider.tsx`).
 - react-router-dom (rutas del lado del cliente, ver `src/App.tsx`)
-- Supabase (auth + Postgres). Cliente en `src/lib/supabaseClient.ts`, auth
-  en `src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts`.
+- Supabase (auth + Postgres, RLS por `owner_id` en todas las tablas).
+  Cliente tipado con el esquema real en `src/lib/supabaseClient.ts`
+  (`createClient<Database>`, ver `src/types/database.ts`), auth en
+  `src/components/AuthProvider.tsx` + `src/hooks/useAuth.ts`.
 - @tanstack/react-query — infraestructura lista (`QueryClientProvider` en
   `App.tsx`, cliente en `src/lib/queryClient.ts`) pero sin queries reales
   todavía. Cuando se conecten campañas/prospectos reales de Supabase, usar
@@ -46,8 +48,14 @@ de `components/ui/`) pueden seguir usando `./`.
   `Context` y el hook van juntos en el mismo archivo (patrón usado en
   `useTheme.ts` y `useAuth.ts`)
 - `src/lib/` — clientes e integraciones externas (Supabase, React Query)
+- `src/types/` — tipos generados del esquema real de Supabase
+  (`database.ts`, regenerado desde el proyecto — no editar a mano) y
+  `index.ts`, que re-exporta los tipos de tabla (`Tables<'campaigns'>`, etc.)
+  con nombres cómodos (`Campaign`, `Prospect`, ...) para el resto de la app
 - `src/data/` — tipos y datos mock (`types.ts`, `mockData.ts`) hasta que se
-  conecten datos reales de Supabase vía React Query
+  conecten datos reales de Supabase vía React Query. No confundir con
+  `src/types/`: `data/types.ts` es para la UI mock actual, `types/` es el
+  esquema real de la base de datos.
 
 ## Auth
 
