@@ -28,8 +28,16 @@ export function Login() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-page px-4">
-      <div className="w-full max-w-sm rounded-card border border-border bg-panel p-8">
+    <div className="relative flex min-h-screen w-full items-center justify-center overflow-hidden bg-page px-4">
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="login-blob login-blob-a" />
+        <div className="login-blob login-blob-b" />
+        <div className="login-blob login-blob-c" />
+        <div className="login-grid" />
+        <div className="login-vignette" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm rounded-card border border-border bg-panel p-8 shadow-[0_0_40px_rgba(124,92,255,0.08)]">
         <h1 className="text-center text-lg font-semibold tracking-tight text-primary">
           Prospecta + Aura
         </h1>
@@ -47,7 +55,7 @@ export function Login() {
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="rounded-control border border-border bg-page px-3 py-2 text-sm text-primary outline-none transition-colors duration-150 ease-out focus:border-accent"
+              className="rounded-control px-3 py-2 text-sm outline-none transition-colors duration-150 ease-out focus:border-accent"
             />
           </div>
 
@@ -62,7 +70,7 @@ export function Login() {
               required
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="rounded-control border border-border bg-page px-3 py-2 text-sm text-primary outline-none transition-colors duration-150 ease-out focus:border-accent"
+              className="rounded-control px-3 py-2 text-sm outline-none transition-colors duration-150 ease-out focus:border-accent"
             />
           </div>
 

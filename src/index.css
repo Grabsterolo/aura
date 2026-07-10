@@ -17,6 +17,8 @@
   --raw-warning-soft: rgba(245, 166, 35, 0.14);
   --raw-error: #ff5c5c;
   --raw-error-soft: rgba(255, 92, 92, 0.14);
+
+  --raw-vignette: rgba(0, 0, 0, 0.45);
 }
 
 [data-theme='light'] {
@@ -35,6 +37,8 @@
   --raw-warning-soft: rgba(181, 114, 15, 0.1);
   --raw-error: #d43d3d;
   --raw-error-soft: rgba(212, 61, 61, 0.1);
+
+  --raw-vignette: rgba(30, 30, 40, 0.1);
 }
 
 @theme {
@@ -55,6 +59,7 @@
   --color-warning-soft: var(--raw-warning-soft);
   --color-error: var(--raw-error);
   --color-error-soft: var(--raw-error-soft);
+  --color-vignette: var(--raw-vignette);
 
   --radius-control: 8px;
   --radius-card: 12px;
@@ -95,4 +100,113 @@ body {
 
 .animate-pulse-live {
   animation: pulse-live 1.8s ease-in-out infinite;
+}
+
+input,
+textarea,
+select {
+  background: var(--color-panel);
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
+  font-family: inherit;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px var(--color-panel) inset;
+  -webkit-text-fill-color: var(--color-primary);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
+/* Fondo decorativo de /login — no se usa en el resto del portal */
+.login-blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(100px);
+  will-change: transform;
+}
+
+.login-blob-a {
+  top: -12%;
+  left: -8%;
+  width: 520px;
+  height: 520px;
+  background: var(--color-accent);
+  opacity: 0.16;
+  animation: login-float-a 26s ease-in-out infinite;
+}
+
+.login-blob-b {
+  right: -6%;
+  bottom: -12%;
+  width: 480px;
+  height: 480px;
+  background: var(--color-live);
+  opacity: 0.14;
+  animation: login-float-b 30s ease-in-out infinite;
+}
+
+.login-blob-c {
+  top: 38%;
+  right: 12%;
+  width: 420px;
+  height: 420px;
+  background: var(--color-accent);
+  opacity: 0.1;
+  animation: login-float-c 24s ease-in-out infinite;
+}
+
+@keyframes login-float-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(40px, 30px) scale(1.08);
+  }
+}
+
+@keyframes login-float-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-35px, -40px) scale(1.05);
+  }
+}
+
+@keyframes login-float-c {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-25px, 20px) scale(0.94);
+  }
+}
+
+.login-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, var(--color-primary) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-primary) 1px, transparent 1px);
+  background-size: 40px 40px;
+  opacity: 0.04;
+}
+
+.login-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 35%, var(--color-vignette) 100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-blob-a,
+  .login-blob-b,
+  .login-blob-c {
+    animation: none;
+  }
 }
