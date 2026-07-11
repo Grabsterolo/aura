@@ -3,6 +3,7 @@ import { ChevronDown } from 'lucide-react';
 import { useCampaigns } from '@/hooks/queries/useCampaigns';
 import { useProspects, type ProspectWithCampaign } from '@/hooks/queries/useProspects';
 import { useAuditProspects } from '@/hooks/queries/useAuditProspects';
+import { useEnrichProspects } from '@/hooks/queries/useEnrichProspects';
 import { useScores } from '@/hooks/queries/useScores';
 import { Card } from '@/components/ui/Card';
 import { Badge, type BadgeVariant } from '@/components/ui/Badge';
@@ -12,6 +13,7 @@ import { OVERPASS_CATEGORIES } from '@/lib/searchCatalog';
 import type { Score } from '@/types';
 
 const MAX_AUDIT_BATCH = 10;
+const MAX_ENRICH_BATCH = 10;
 const MESSAGE_TIMEOUT_MS = 5000;
 
 interface ProspectGroup {
@@ -23,6 +25,7 @@ interface ProspectGroup {
 interface ProspectContact {
   telefono: string | null;
   email: string | null;
+  web: string | null;
 }
 
 function getCategoryLabel(categoria: string | null): string | null {
@@ -33,13 +36,14 @@ function getCategoryLabel(categoria: string | null): string | null {
 
 function getContact(contacto: ProspectWithCampaign['contacto']): ProspectContact {
   if (!contacto || typeof contacto !== 'object' || Array.isArray(contacto)) {
-    return { telefono: null, email: null };
+    return { telefono: null, email: null, web: null };
   }
 
   const record = contacto as Record<string, unknown>;
   return {
     telefono: typeof record.telefono === 'string' ? record.telefono : null,
     email: typeof record.email === 'string' ? record.email : null,
+    web: typeof record.web === 'string' ? record.web : null,
   };
 }
 
@@ -173,9 +177,13 @@ function ProspectGroupSection({
   const [isExpanded, setIsExpanded] = useState(true);
   const [groupMessage, setGroupMessage] = useState<string | null>(null);
   const auditGroup = useAuditProspects();
+  const enrichGroup = useEnrichProspects();
   useAutoDismiss(groupMessage, setGroupMessage);
 
   const pending = prospects.filter((prospect) => prospect.estado === 'encontrado');
+  const pendingWebSearch = prospects.filter(
+    (prospect) => !getContact(prospect.contacto).web && prospect.estado !== 'encontrado',
+  );
 
   const handleAuditPending = () => {
     const batch = pending.slice(0, MAX_AUDIT_BATCH);
@@ -187,6 +195,28 @@ function ProspectGroupSection({
         onSuccess: (data) => {
           const parts = [`${data.auditados} auditados`];
           if (data.omitidos_sin_web > 0) parts.push(`${data.omitidos_sin_web} sin sitio web`);
+          if (data.errores.length > 0) parts.push(`${data.errores.length} con error`);
+          if (remaining > 0) parts.push(`${remaining} pendientes`);
+          setGroupMessage(`${parts.join(', ')}.`);
+        },
+        onError: (error) => {
+          setGroupMessage(`Error: ${error instanceof Error ? error.message : 'error desconocido'}`);
+        },
+      },
+    );
+  };
+
+  const handleEnrichPending = () => {
+    const batch = pendingWebSearch.slice(0, MAX_ENRICH_BATCH);
+    const remaining = pendingWebSearch.length - batch.length;
+
+    enrichGroup.mutate(
+      batch.map((prospect) => prospect.id),
+      {
+        onSuccess: (data) => {
+          const parts = [`${data.enriquecidos} con sitio encontrado`];
+          if (data.sin_resultado > 0) parts.push(`${data.sin_resultado} sin resultado`);
+          if (data.omitidos_con_sitio > 0) parts.push(`${data.omitidos_con_sitio} ya tenían sitio`);
           if (data.errores.length > 0) parts.push(`${data.errores.length} con error`);
           if (remaining > 0) parts.push(`${remaining} pendientes`);
           setGroupMessage(`${parts.join(', ')}.`);
@@ -218,6 +248,18 @@ function ProspectGroupSection({
           <Badge variant="neutral">{prospects.length}</Badge>
         </button>
 
+        {pendingWebSearch.length > 0 ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={enrichGroup.isPending}
+            onClick={handleEnrichPending}
+          >
+            {enrichGroup.isPending ? 'Buscando…' : `Buscar sitio web (${pendingWebSearch.length})`}
+          </Button>
+        ) : null}
+
         {pending.length > 0 ? (
           <Button
             type="button"
@@ -247,12 +289,14 @@ function ProspectGroupSection({
 function ProspectCard({ prospect, score }: { prospect: ProspectWithCampaign; score?: Score }) {
   const [message, setMessage] = useState<string | null>(null);
   const auditProspect = useAuditProspects();
+  const enrichProspect = useEnrichProspects();
   useAutoDismiss(message, setMessage);
 
   const categoryLabel = getCategoryLabel(prospect.categoria);
   const contact = getContact(prospect.contacto);
   const contactLine = [contact.telefono, contact.email].filter(Boolean).join(' · ');
   const criterio = score ? getCriterioInfo(score.criterio_usado) : { tier: null, razon: null };
+  const canSearchWeb = !contact.web && prospect.estado !== 'encontrado';
 
   const handleAudit = () => {
     auditProspect.mutate([prospect.id], {
@@ -263,6 +307,23 @@ function ProspectCard({ prospect, score }: { prospect: ProspectWithCampaign; sco
           setMessage('Sin sitio web — auditado igual.');
         } else {
           setMessage('Auditado ✓');
+        }
+      },
+      onError: (error) => {
+        setMessage(`Error: ${error instanceof Error ? error.message : 'error desconocido'}`);
+      },
+    });
+  };
+
+  const handleEnrich = () => {
+    enrichProspect.mutate([prospect.id], {
+      onSuccess: (data) => {
+        if (data.errores.length > 0) {
+          setMessage(`Error: ${data.errores[0].motivo}`);
+        } else if (data.enriquecidos > 0) {
+          setMessage('Sitio web encontrado — re-auditando…');
+        } else {
+          setMessage('Sin resultado en Google Places.');
         }
       },
       onError: (error) => {
@@ -310,6 +371,17 @@ function ProspectCard({ prospect, score }: { prospect: ProspectWithCampaign; sco
             onClick={handleAudit}
           >
             {auditProspect.isPending ? 'Auditando…' : 'Auditar'}
+          </Button>
+        ) : null}
+        {canSearchWeb ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={enrichProspect.isPending}
+            onClick={handleEnrich}
+          >
+            {enrichProspect.isPending ? 'Buscando…' : 'Buscar sitio web'}
           </Button>
         ) : null}
       </div>
