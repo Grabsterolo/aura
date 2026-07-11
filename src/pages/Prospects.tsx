@@ -3,11 +3,13 @@ import { ChevronDown } from 'lucide-react';
 import { useCampaigns } from '@/hooks/queries/useCampaigns';
 import { useProspects, type ProspectWithCampaign } from '@/hooks/queries/useProspects';
 import { useAuditProspects } from '@/hooks/queries/useAuditProspects';
+import { useScores } from '@/hooks/queries/useScores';
 import { Card } from '@/components/ui/Card';
-import { Badge } from '@/components/ui/Badge';
+import { Badge, type BadgeVariant } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { OVERPASS_CATEGORIES } from '@/lib/searchCatalog';
+import type { Score } from '@/types';
 
 const MAX_AUDIT_BATCH = 10;
 const MESSAGE_TIMEOUT_MS = 5000;
@@ -41,6 +43,39 @@ function getContact(contacto: ProspectWithCampaign['contacto']): ProspectContact
   };
 }
 
+type ScoreTier = 'alta' | 'media' | 'baja';
+
+interface CriterioInfo {
+  tier: ScoreTier | null;
+  razon: string | null;
+}
+
+const TIER_BADGE_VARIANT: Record<ScoreTier, BadgeVariant> = {
+  alta: 'success',
+  media: 'warning',
+  baja: 'neutral',
+};
+
+const TIER_LABEL: Record<ScoreTier, string> = {
+  alta: 'Prioridad alta',
+  media: 'Prioridad media',
+  baja: 'Prioridad baja',
+};
+
+function getCriterioInfo(criterioUsado: Score['criterio_usado']): CriterioInfo {
+  if (!criterioUsado || typeof criterioUsado !== 'object' || Array.isArray(criterioUsado)) {
+    return { tier: null, razon: null };
+  }
+
+  const record = criterioUsado as Record<string, unknown>;
+  const tier = record.tier;
+  const razon = record.razon;
+  return {
+    tier: tier === 'alta' || tier === 'media' || tier === 'baja' ? tier : null,
+    razon: typeof razon === 'string' ? razon : null,
+  };
+}
+
 function useAutoDismiss(message: string | null, setMessage: (value: string | null) => void) {
   useEffect(() => {
     if (!message) return;
@@ -52,6 +87,17 @@ function useAutoDismiss(message: string | null, setMessage: (value: string | nul
 export function Prospects() {
   const { data: campaigns } = useCampaigns();
   const { data: prospects, isLoading, isError } = useProspects();
+  const { data: scores } = useScores();
+
+  const latestScoreByProspect = useMemo(() => {
+    const map = new Map<string, Score>();
+    for (const score of scores ?? []) {
+      if (!map.has(score.prospect_id)) {
+        map.set(score.prospect_id, score);
+      }
+    }
+    return map;
+  }, [scores]);
 
   const groups = useMemo<ProspectGroup[]>(() => {
     if (!prospects) return [];
@@ -104,13 +150,26 @@ export function Prospects() {
   return (
     <div className="flex flex-col gap-4">
       {groups.map((group) => (
-        <ProspectGroupSection key={group.key} title={group.title} prospects={group.prospects} />
+        <ProspectGroupSection
+          key={group.key}
+          title={group.title}
+          prospects={group.prospects}
+          scoresByProspect={latestScoreByProspect}
+        />
       ))}
     </div>
   );
 }
 
-function ProspectGroupSection({ title, prospects }: { title: string; prospects: ProspectWithCampaign[] }) {
+function ProspectGroupSection({
+  title,
+  prospects,
+  scoresByProspect,
+}: {
+  title: string;
+  prospects: ProspectWithCampaign[];
+  scoresByProspect: Map<string, Score>;
+}) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [groupMessage, setGroupMessage] = useState<string | null>(null);
   const auditGroup = useAuditProspects();
@@ -177,7 +236,7 @@ function ProspectGroupSection({ title, prospects }: { title: string; prospects: 
       {isExpanded ? (
         <div className="mt-2 flex flex-col gap-3 pl-6">
           {prospects.map((prospect) => (
-            <ProspectCard key={prospect.id} prospect={prospect} />
+            <ProspectCard key={prospect.id} prospect={prospect} score={scoresByProspect.get(prospect.id)} />
           ))}
         </div>
       ) : null}
@@ -185,7 +244,7 @@ function ProspectGroupSection({ title, prospects }: { title: string; prospects: 
   );
 }
 
-function ProspectCard({ prospect }: { prospect: ProspectWithCampaign }) {
+function ProspectCard({ prospect, score }: { prospect: ProspectWithCampaign; score?: Score }) {
   const [message, setMessage] = useState<string | null>(null);
   const auditProspect = useAuditProspects();
   useAutoDismiss(message, setMessage);
@@ -193,6 +252,7 @@ function ProspectCard({ prospect }: { prospect: ProspectWithCampaign }) {
   const categoryLabel = getCategoryLabel(prospect.categoria);
   const contact = getContact(prospect.contacto);
   const contactLine = [contact.telefono, contact.email].filter(Boolean).join(' · ');
+  const criterio = score ? getCriterioInfo(score.criterio_usado) : { tier: null, razon: null };
 
   const handleAudit = () => {
     auditProspect.mutate([prospect.id], {
@@ -222,6 +282,13 @@ function ProspectCard({ prospect }: { prospect: ProspectWithCampaign }) {
         {prospect.barrio ? ` · ${prospect.barrio}` : ''}
       </p>
       {contactLine ? <p className="mt-1 text-xs text-muted">{contactLine}</p> : null}
+
+      {criterio.tier ? (
+        <div className="mt-2 flex items-start gap-2">
+          <Badge variant={TIER_BADGE_VARIANT[criterio.tier]}>{TIER_LABEL[criterio.tier]}</Badge>
+          {criterio.razon ? <p className="text-xs text-muted">{criterio.razon}</p> : null}
+        </div>
+      ) : null}
 
       <div className="mt-2 flex items-center gap-3">
         {prospect.lat !== null && prospect.lon !== null ? (

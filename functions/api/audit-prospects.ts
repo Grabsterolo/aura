@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Json, TablesInsert } from '../../src/types/database';
+import { scoreProspect } from './_lib/scoring';
 
 interface Env {
   SUPABASE_URL: string;
@@ -17,7 +18,12 @@ interface ProspectRow {
   nombre_negocio: string;
   estado: string;
   contacto: unknown;
+  contactable: boolean | null;
+  campaign_id: string | null;
+  campaigns: { umbral_score: number } | null;
 }
+
+const DEFAULT_UMBRAL_SCORE = 80;
 
 interface Velocidad {
   performance_score: number | null;
@@ -333,17 +339,32 @@ function buildMedioContactoFromScrape(contacto: unknown, content: string, html: 
 
 // --- Construcción del audit por prospecto -----------------------------------
 
-function buildCaseAAudit(prospect: ProspectRow, userId: string): TablesInsert<'audits'> {
+interface AuditBuildResult {
+  insert: TablesInsert<'audits'>;
+  velocidad: Velocidad | null;
+  medioContacto: MedioContacto;
+  funcionalidadSitio: FuncionalidadSitio;
+}
+
+function buildCaseAAudit(prospect: ProspectRow, userId: string): AuditBuildResult {
+  const medioContacto = buildMedioContactoFallback(prospect.contacto);
+  const funcionalidadSitio: FuncionalidadSitio = {
+    tipo: 'sin_sitio_web',
+    paginas_detectadas: 0,
+    tiene_reservas_online: false,
+  };
+
   return {
-    owner_id: userId,
-    prospect_id: prospect.id,
-    velocidad: null,
-    medio_contacto: buildMedioContactoFallback(prospect.contacto) as unknown as Json,
-    funcionalidad_sitio: {
-      tipo: 'sin_sitio_web',
-      paginas_detectadas: 0,
-      tiene_reservas_online: false,
+    insert: {
+      owner_id: userId,
+      prospect_id: prospect.id,
+      velocidad: null,
+      medio_contacto: medioContacto as unknown as Json,
+      funcionalidad_sitio: funcionalidadSitio as unknown as Json,
     },
+    velocidad: null,
+    medioContacto,
+    funcionalidadSitio,
   };
 }
 
@@ -352,7 +373,7 @@ async function buildCaseBAudit(
   web: string,
   userId: string,
   env: Env,
-): Promise<TablesInsert<'audits'>> {
+): Promise<AuditBuildResult> {
   const [velocidadResult, firecrawlResult] = await Promise.allSettled([
     fetchPageSpeed(web, env.PAGESPEED_API_KEY),
     fetchFirecrawl(web, env.FIRECRAWL_API_KEY),
@@ -400,11 +421,16 @@ async function buildCaseBAudit(
   }
 
   return {
-    owner_id: userId,
-    prospect_id: prospect.id,
-    velocidad: velocidad as unknown as Json,
-    medio_contacto: medioContacto as unknown as Json,
-    funcionalidad_sitio: funcionalidadSitio as unknown as Json,
+    insert: {
+      owner_id: userId,
+      prospect_id: prospect.id,
+      velocidad: velocidad as unknown as Json,
+      medio_contacto: medioContacto as unknown as Json,
+      funcionalidad_sitio: funcionalidadSitio as unknown as Json,
+    },
+    velocidad,
+    medioContacto,
+    funcionalidadSitio,
   };
 }
 
@@ -423,11 +449,11 @@ async function processProspect(
 ): Promise<{ prospectId: string; nombreNegocio: string; outcome: ProspectOutcome }> {
   const web = getContactoField(prospect.contacto, 'web');
 
-  const auditInsert = web
+  const built = web
     ? await buildCaseBAudit(prospect, web, userId, env)
     : buildCaseAAudit(prospect, userId);
 
-  const { error: insertError } = await supabaseAdmin.from('audits').insert(auditInsert);
+  const { error: insertError } = await supabaseAdmin.from('audits').insert(built.insert);
 
   if (insertError) {
     return {
@@ -437,7 +463,33 @@ async function processProspect(
     };
   }
 
-  if (prospect.estado === 'encontrado') {
+  const scoreResult = scoreProspect(
+    { contactable: prospect.contactable },
+    {
+      velocidad: built.velocidad,
+      medio_contacto: built.medioContacto,
+      funcionalidad_sitio: built.funcionalidadSitio,
+    },
+  );
+
+  const { error: scoreInsertError } = await supabaseAdmin.from('scores').insert({
+    owner_id: userId,
+    prospect_id: prospect.id,
+    puntaje: scoreResult.puntaje,
+    criterio_usado: scoreResult.criterio_usado as unknown as Json,
+  });
+
+  if (scoreInsertError) {
+    // El audit ya se guardó; no tratamos esto como falla del prospecto.
+    console.error('[audit-prospects] no se pudo guardar el score', {
+      prospectId: prospect.id,
+      error: scoreInsertError.message,
+    });
+  }
+
+  let currentEstado = prospect.estado;
+
+  if (currentEstado === 'encontrado') {
     const { error: updateError } = await supabaseAdmin
       .from('prospects')
       .update({ estado: 'auditado' })
@@ -449,6 +501,25 @@ async function processProspect(
       console.error('[audit-prospects] no se pudo actualizar estado del prospecto', {
         prospectId: prospect.id,
         error: updateError.message,
+      });
+    } else {
+      currentEstado = 'auditado';
+    }
+  }
+
+  const umbralScore = prospect.campaigns?.umbral_score ?? DEFAULT_UMBRAL_SCORE;
+
+  if (currentEstado === 'auditado' && prospect.contactable === true && scoreResult.puntaje >= umbralScore) {
+    const { error: calificadoError } = await supabaseAdmin
+      .from('prospects')
+      .update({ estado: 'calificado' })
+      .eq('id', prospect.id)
+      .eq('estado', 'auditado');
+
+    if (calificadoError) {
+      console.error('[audit-prospects] no se pudo actualizar a calificado', {
+        prospectId: prospect.id,
+        error: calificadoError.message,
       });
     }
   }
@@ -501,7 +572,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
   const { data: foundProspects, error: fetchError } = await supabaseAdmin
     .from('prospects')
-    .select('id, nombre_negocio, estado, contacto')
+    .select('id, nombre_negocio, estado, contacto, contactable, campaign_id, campaigns(umbral_score)')
     .in('id', prospectIds)
     .eq('owner_id', userId);
 
@@ -509,7 +580,7 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     return jsonResponse({ error: 'No se pudieron cargar los prospectos.' }, 500);
   }
 
-  const found = foundProspects ?? [];
+  const found = (foundProspects ?? []) as ProspectRow[];
   const foundIds = new Set(found.map((prospect) => prospect.id));
 
   const errores: ErrorEntry[] = prospectIds

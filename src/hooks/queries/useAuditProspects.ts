@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabaseClient';
 import { prospectsKey } from './useProspects';
+import { scoresKey } from './useScores';
 
 export interface AuditProspectsError {
   prospect_id: string;
@@ -46,6 +47,7 @@ export function useAuditProspects() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: prospectsKey });
+      queryClient.invalidateQueries({ queryKey: scoresKey });
     },
   });
 }
