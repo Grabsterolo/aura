@@ -36,14 +36,16 @@ interface MedioContacto {
   chat_vivo: boolean;
   chatbot_ia: boolean;
   chatbot_vendor: string | null;
+  error?: string;
 }
 
-type SitioTipo = 'landing' | 'funcional' | 'ecommerce' | 'portal' | 'sin_sitio_web';
+type SitioTipo = 'landing' | 'funcional' | 'ecommerce' | 'portal' | 'sin_sitio_web' | 'desconocido';
 
 interface FuncionalidadSitio {
   tipo: SitioTipo;
   paginas_detectadas: number;
   tiene_reservas_online: boolean;
+  error?: string;
 }
 
 interface ErrorEntry {
@@ -386,8 +388,15 @@ async function buildCaseBAudit(
       prospectId: prospect.id,
       error: firecrawlResult.reason instanceof Error ? firecrawlResult.reason.message : firecrawlResult.reason,
     });
-    medioContacto = buildMedioContactoFallback(prospect.contacto);
-    funcionalidadSitio = { tipo: 'landing', paginas_detectadas: 0, tiene_reservas_online: false };
+    const firecrawlErrorMessage =
+      firecrawlResult.reason instanceof Error ? firecrawlResult.reason.message : 'error desconocido';
+    medioContacto = { ...buildMedioContactoFallback(prospect.contacto), error: firecrawlErrorMessage };
+    funcionalidadSitio = {
+      tipo: 'desconocido',
+      paginas_detectadas: 0,
+      tiene_reservas_online: false,
+      error: firecrawlErrorMessage,
+    };
   }
 
   return {
