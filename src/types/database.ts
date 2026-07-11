@@ -56,7 +56,7 @@ export type Database = {
           owner_id: string
           potencial_oportunidad: Json
           prospect_id: string
-          velocidad: Json
+          velocidad: Json | null
         }
         Insert: {
           fecha?: string
@@ -66,7 +66,7 @@ export type Database = {
           owner_id?: string
           potencial_oportunidad?: Json
           prospect_id: string
-          velocidad?: Json
+          velocidad?: Json | null
         }
         Update: {
           fecha?: string
@@ -76,7 +76,7 @@ export type Database = {
           owner_id?: string
           potencial_oportunidad?: Json
           prospect_id?: string
-          velocidad?: Json
+          velocidad?: Json | null
         }
         Relationships: [
           {
