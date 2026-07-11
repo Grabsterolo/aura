@@ -254,6 +254,21 @@ function detectReservasOnline(content: string): boolean {
   );
 }
 
+function extractMailtoEmail(html: string): string | null {
+  const match = html.match(/mailto:([^"'?\s>]+)/i);
+  if (!match) return null;
+  const candidate = match[1].trim();
+  const emailPattern = /^[^\s@"'<>]+@[^\s@"'<>]+\.[^\s@"'<>]+$/;
+  return emailPattern.test(candidate) ? candidate : null;
+}
+
+function extractTelLink(html: string): string | null {
+  const match = html.match(/tel:([^"'>\s]+)/i);
+  if (!match) return null;
+  const candidate = match[1].trim();
+  return candidate.length > 0 ? candidate : null;
+}
+
 // Cuenta links internos distintos del home (mismo hostname o rutas relativas).
 // Es una aproximación sobre una sola página, no un crawl completo del sitio.
 function countInternalLinks(html: string, baseUrl: string): number {
@@ -344,6 +359,8 @@ interface AuditBuildResult {
   velocidad: Velocidad | null;
   medioContacto: MedioContacto;
   funcionalidadSitio: FuncionalidadSitio;
+  extractedEmail: string | null;
+  extractedTelefono: string | null;
 }
 
 function buildCaseAAudit(prospect: ProspectRow, userId: string): AuditBuildResult {
@@ -365,6 +382,8 @@ function buildCaseAAudit(prospect: ProspectRow, userId: string): AuditBuildResul
     velocidad: null,
     medioContacto,
     funcionalidadSitio,
+    extractedEmail: null,
+    extractedTelefono: null,
   };
 }
 
@@ -393,11 +412,15 @@ async function buildCaseBAudit(
 
   let medioContacto: MedioContacto;
   let funcionalidadSitio: FuncionalidadSitio;
+  let extractedEmail: string | null = null;
+  let extractedTelefono: string | null = null;
 
   if (firecrawlResult.status === 'fulfilled') {
     const { markdown, html } = firecrawlResult.value;
     const content = `${html}\n${markdown}`;
     medioContacto = buildMedioContactoFromScrape(prospect.contacto, content, html);
+    extractedEmail = extractMailtoEmail(html);
+    extractedTelefono = extractTelLink(html);
     const { tipo, paginasDetectadas } = detectSiteType(html, content, web);
     funcionalidadSitio = {
       tipo,
@@ -431,6 +454,8 @@ async function buildCaseBAudit(
     velocidad,
     medioContacto,
     funcionalidadSitio,
+    extractedEmail,
+    extractedTelefono,
   };
 }
 
@@ -463,8 +488,33 @@ async function processProspect(
     };
   }
 
+  const contactoActual = (prospect.contacto ?? {}) as Record<string, unknown>;
+  const emailActual = typeof contactoActual.email === 'string' ? contactoActual.email : null;
+  const telefonoActual = typeof contactoActual.telefono === 'string' ? contactoActual.telefono : null;
+
+  const nuevoEmail = emailActual ?? built.extractedEmail ?? null;
+  const nuevoTelefono = telefonoActual ?? built.extractedTelefono ?? null;
+
+  const contactoCambio = nuevoEmail !== emailActual || nuevoTelefono !== telefonoActual;
+
+  if (contactoCambio) {
+    const { error: contactoUpdateError } = await supabaseAdmin
+      .from('prospects')
+      .update({ contacto: { ...contactoActual, email: nuevoEmail, telefono: nuevoTelefono } })
+      .eq('id', prospect.id);
+
+    if (contactoUpdateError) {
+      console.error('[audit-prospects] no se pudo actualizar contacto enriquecido', {
+        prospectId: prospect.id,
+        error: contactoUpdateError.message,
+      });
+    }
+  }
+
+  const contactableEfectivo = Boolean(nuevoEmail && nuevoEmail.trim().length > 0);
+
   const scoreResult = scoreProspect(
-    { contactable: prospect.contactable },
+    { contactable: contactableEfectivo },
     {
       velocidad: built.velocidad,
       medio_contacto: built.medioContacto,
@@ -509,7 +559,7 @@ async function processProspect(
 
   const umbralScore = prospect.campaigns?.umbral_score ?? DEFAULT_UMBRAL_SCORE;
 
-  if (currentEstado === 'auditado' && prospect.contactable === true && scoreResult.puntaje >= umbralScore) {
+  if (currentEstado === 'auditado' && contactableEfectivo && scoreResult.puntaje >= umbralScore) {
     const { error: calificadoError } = await supabaseAdmin
       .from('prospects')
       .update({ estado: 'calificado' })
